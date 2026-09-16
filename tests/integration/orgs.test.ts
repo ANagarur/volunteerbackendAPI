@@ -41,6 +41,12 @@ describe('POST /orgs', () => {
 
     expect(res.status).toBe(400);
   });
+
+  it('rejects a missing managerID', async () => {
+    const res = await request(app).post('/orgs').send({ name: 'Red Cross' });
+
+    expect(res.status).toBe(400);
+  });
 });
 
 describe('GET /orgs', () => {
@@ -77,5 +83,11 @@ describe('GET /orgs/:orgID', () => {
     const res = await request(app).get(`/orgs/${NONEXISTENT_ID}`);
 
     expect(res.status).toBe(404);
+  });
+
+  it('returns 400 for a malformed orgID', async () => {
+    const res = await request(app).get('/orgs/not-an-id');
+
+    expect(res.status).toBe(400);
   });
 });

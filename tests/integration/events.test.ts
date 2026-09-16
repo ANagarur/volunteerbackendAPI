@@ -49,6 +49,33 @@ describe('POST /events', () => {
     expect(res.status).toBe(404);
     expect(res.body.error).toMatch(/orgID/);
   });
+
+  it('rejects a malformed managerID', async () => {
+    const managerID = await createVolunteer();
+    const orgID = await createOrg(managerID);
+
+    const res = await request(app).post('/events').send({ managerID: 'bad-id', orgID });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe('Validation failed');
+  });
+
+  it('rejects a malformed orgID', async () => {
+    const managerID = await createVolunteer();
+
+    const res = await request(app).post('/events').send({ managerID, orgID: 'bad-id' });
+
+    expect(res.status).toBe(400);
+  });
+
+  it('rejects a missing managerID', async () => {
+    const managerID = await createVolunteer();
+    const orgID = await createOrg(managerID);
+
+    const res = await request(app).post('/events').send({ orgID });
+
+    expect(res.status).toBe(400);
+  });
 });
 
 describe('GET /events', () => {
@@ -78,6 +105,12 @@ describe('GET /events/org/:orgID', () => {
     expect(res.body).toHaveLength(1);
     expect(res.body[0]._id).toBe(eventA.body.eventID);
   });
+
+  it('returns 400 for a malformed orgID', async () => {
+    const res = await request(app).get('/events/org/not-an-id');
+
+    expect(res.status).toBe(400);
+  });
 });
 
 describe('GET /events/:eventID', () => {
@@ -96,5 +129,11 @@ describe('GET /events/:eventID', () => {
     const res = await request(app).get(`/events/${NONEXISTENT_ID}`);
 
     expect(res.status).toBe(404);
+  });
+
+  it('returns 400 for a malformed eventID', async () => {
+    const res = await request(app).get('/events/not-an-id');
+
+    expect(res.status).toBe(400);
   });
 });

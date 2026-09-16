@@ -54,6 +54,11 @@ describe('CreateOrgSchema', () => {
     const result = CreateOrgSchema.safeParse({ managerID: VALID_ID });
     expect(result.success).toBe(false);
   });
+
+  it('rejects a missing managerID', () => {
+    const result = CreateOrgSchema.safeParse({ name: 'Red Cross' });
+    expect(result.success).toBe(false);
+  });
 });
 
 describe('CreateEventSchema', () => {
@@ -64,6 +69,21 @@ describe('CreateEventSchema', () => {
 
   it('rejects a missing orgID', () => {
     const result = CreateEventSchema.safeParse({ managerID: VALID_ID });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects a missing managerID', () => {
+    const result = CreateEventSchema.safeParse({ orgID: VALID_ID });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects a malformed managerID', () => {
+    const result = CreateEventSchema.safeParse({ managerID: 'not-an-id', orgID: VALID_ID });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects a malformed orgID', () => {
+    const result = CreateEventSchema.safeParse({ managerID: VALID_ID, orgID: 'not-an-id' });
     expect(result.success).toBe(false);
   });
 });

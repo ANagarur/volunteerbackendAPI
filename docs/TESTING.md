@@ -17,7 +17,7 @@ Run by name pattern: `npx jest --testPathPatterns=orgs`
 - **Framework:** Jest + `ts-jest` (TypeScript, type-checked). HTTP-level tests use `supertest` against `createApp()` directly — no real server/port is bound.
 - **Database:** all tests hit a real local MongoDB (`mongodb://127.0.0.1:27017`), using 4 dedicated `*_test` databases (`volunteerdb_test`, `orgdb_test`, `eventdb_test`, `shiftdb_test`) so tests never touch dev data. Set in [tests/env.setup.ts](../tests/env.setup.ts).
 - **Isolation:** [tests/setup.ts](../tests/setup.ts) waits for all 4 connections before each test file runs, wipes every collection after each test (`afterEach`), and closes all connections when the file finishes (`afterAll`). Each test therefore starts from an empty database.
-- **No mocking:** these are real integration tests — real Express app, real Mongoose models, real MongoDB. The only thing not real is the network port (supertest talks to the app in-process).
+- **No mocking:** the HTTP-level tests are real integration tests — real Express app, real Mongoose models, real MongoDB. The only thing not real is the network port (supertest talks to the app in-process). The `errorHandler` unit tests are the one place mocks are used (mocked Express `req`/`res`), since they test the middleware in isolation.
 
 ---
 
@@ -39,10 +39,14 @@ No database, no HTTP — pure input-validation logic in isolation.
 - accepts a valid payload
 - rejects an invalid `managerID` (format)
 - rejects a missing `name`
+- rejects a missing `managerID`
 
 **`CreateEventSchema`**
 - accepts a valid payload
 - rejects a missing `orgID`
+- rejects a missing `managerID`
+- rejects a malformed `managerID`
+- rejects a malformed `orgID`
 
 **`CreateShiftSchema`**
 - accepts a valid payload
@@ -50,6 +54,23 @@ No database, no HTTP — pure input-validation logic in isolation.
 - rejects `numberNeeded` greater than `maxPeople`
 - rejects a negative `numberNeeded`
 - rejects `maxPeople` of `0`
+
+---
+
+## `tests/unit/errorHandler.test.ts` — error-handling middleware unit tests
+
+Calls `errorHandler` directly with mocked `req`/`res`/`next` — no app, no DB.
+
+- responds `400` with `{ error: "Validation failed", details }` for a `ZodError`
+- responds with the `AppError`'s own status code and message (e.g. `404`)
+- responds `500` with `{ error: "Internal server error" }` for an unrecognized thrown `Error`, and logs it via `console.error`
+- responds `500` for a non-`Error` thrown value (e.g. a plain string), confirming the fallback branch isn't relying on `Error`-specific behavior
+
+---
+
+## `tests/integration/health.test.ts` — `GET /`
+
+- returns `200` with the plain-text body `"API is running"`
 
 ---
 
@@ -75,6 +96,7 @@ No database, no HTTP — pure input-validation logic in isolation.
 - rejects a `managerID` that doesn't resolve to an existing volunteer → `404`
 - rejects a missing `name` → `400`
 - rejects a malformed `managerID` → `400`
+- rejects a missing `managerID` → `400`
 
 **`GET /orgs`**
 - lists the ids of all created orgs
@@ -82,6 +104,7 @@ No database, no HTTP — pure input-validation logic in isolation.
 **`GET /orgs/:orgID`**
 - returns the full org document, including `description`
 - returns `404` for a nonexistent org
+- returns `400` for a malformed orgID
 
 ---
 
@@ -91,16 +114,21 @@ No database, no HTTP — pure input-validation logic in isolation.
 - creates an event when both `managerID` and `orgID` resolve
 - rejects a `managerID` that doesn't resolve → `404`
 - rejects an `orgID` that doesn't resolve → `404`
+- rejects a malformed `managerID` → `400`
+- rejects a malformed `orgID` → `400`
+- rejects a missing `managerID` → `400`
 
 **`GET /events`**
 - lists all created events
 
 **`GET /events/org/:orgID`**
 - returns only the events belonging to that org (verified against a second org's event to confirm filtering, not just presence)
+- returns `400` for a malformed orgID
 
 **`GET /events/:eventID`**
 - returns the full event document
 - returns `404` for a nonexistent event
+- returns `400` for a malformed eventID
 
 ---
 
@@ -111,23 +139,33 @@ No database, no HTTP — pure input-validation logic in isolation.
 - rejects an `eventID` that doesn't resolve → `404`
 - rejects `timing.end` before `timing.start` → `400`
 - rejects `numberNeeded` greater than `maxPeople` → `400`
+- rejects a negative `numberNeeded` → `400`
+- rejects `maxPeople` of `0` → `400`
 
 **`GET /shifts/:shiftID`**
 - returns the full shift document (with an empty `volunteers` array on creation)
 - returns `404` for a nonexistent shift
+- returns `400` for a malformed shiftID
 
 **`GET /shifts/event/:eventID`**
 - returns shift ids belonging to that event
+- returns `400` for a malformed eventID
 
 **`PATCH /shifts/:shiftID/volunteers`** (assign)
 - adds a volunteer to the shift
 - rejects a `volunteerID` that doesn't resolve → `404`
 - rejects adding the same volunteer twice → `409`
 - rejects adding a volunteer once the shift is at `maxPeople` capacity → `409`
+- returns `404` when the shift itself doesn't exist (distinct code path from the volunteer-not-found case)
+- returns `400` for a malformed shiftID
+- returns `400` for a malformed volunteerID
 
 **`PATCH /shifts/:shiftID/volunteers/remove`** (unassign)
 - removes a volunteer from the shift
 - returns `404` when the volunteer isn't on the shift
+- returns `404` when the shift itself doesn't exist (distinct code path from the volunteer-not-on-shift case)
+- returns `400` for a malformed shiftID
+- returns `400` for a malformed volunteerID
 
 ---
 

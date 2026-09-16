@@ -33,9 +33,12 @@
     "typescript": "^5.9.3"
   },
   "scripts": {
+    "predev": "docker start local-mongo",
     "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
     "build": "tsc",
     "start": "node dist/index.js",
-    "test": "jest --runInBand"
+    "pretest": "docker start local-mongo",
+    "test": "jest --runInBand",
+    "stop": "docker stop local-mongo"
   }
 }

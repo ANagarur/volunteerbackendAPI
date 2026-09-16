@@ -72,6 +72,22 @@ describe('POST /shifts', () => {
 
     expect(res.status).toBe(400);
   });
+
+  it('rejects a negative numberNeeded', async () => {
+    const eventID = await setupEvent();
+
+    const res = await createShift(eventID, { numberNeeded: -1 });
+
+    expect(res.status).toBe(400);
+  });
+
+  it('rejects maxPeople of 0', async () => {
+    const eventID = await setupEvent();
+
+    const res = await createShift(eventID, { numberNeeded: 0, maxPeople: 0 });
+
+    expect(res.status).toBe(400);
+  });
 });
 
 describe('GET /shifts/:shiftID', () => {
@@ -90,6 +106,12 @@ describe('GET /shifts/:shiftID', () => {
 
     expect(res.status).toBe(404);
   });
+
+  it('returns 400 for a malformed shiftID', async () => {
+    const res = await request(app).get('/shifts/not-an-id');
+
+    expect(res.status).toBe(400);
+  });
 });
 
 describe('GET /shifts/event/:eventID', () => {
@@ -101,6 +123,12 @@ describe('GET /shifts/event/:eventID', () => {
 
     expect(res.status).toBe(200);
     expect(res.body).toContain(created.body.shiftID);
+  });
+
+  it('returns 400 for a malformed eventID', async () => {
+    const res = await request(app).get('/shifts/event/not-an-id');
+
+    expect(res.status).toBe(400);
   });
 });
 
@@ -157,6 +185,38 @@ describe('PATCH /shifts/:shiftID/volunteers', () => {
 
     expect(res.status).toBe(409);
   });
+
+  it('returns 404 when the shift does not exist', async () => {
+    const volunteerID = await createVolunteer();
+
+    const res = await request(app)
+      .patch(`/shifts/${NONEXISTENT_ID}/volunteers`)
+      .send({ volunteerID });
+
+    expect(res.status).toBe(404);
+    expect(res.body.error).toBe('Shift not found');
+  });
+
+  it('returns 400 for a malformed shiftID', async () => {
+    const volunteerID = await createVolunteer();
+
+    const res = await request(app)
+      .patch('/shifts/not-an-id/volunteers')
+      .send({ volunteerID });
+
+    expect(res.status).toBe(400);
+  });
+
+  it('returns 400 for a malformed volunteerID', async () => {
+    const eventID = await setupEvent();
+    const shift = await createShift(eventID);
+
+    const res = await request(app)
+      .patch(`/shifts/${shift.body.shiftID}/volunteers`)
+      .send({ volunteerID: 'not-an-id' });
+
+    expect(res.status).toBe(400);
+  });
 });
 
 describe('PATCH /shifts/:shiftID/volunteers/remove', () => {
@@ -184,5 +244,38 @@ describe('PATCH /shifts/:shiftID/volunteers/remove', () => {
       .send({ volunteerID });
 
     expect(res.status).toBe(404);
+    expect(res.body.error).toBe('Volunteer is not on this shift');
+  });
+
+  it('returns 404 when the shift does not exist', async () => {
+    const volunteerID = await createVolunteer();
+
+    const res = await request(app)
+      .patch(`/shifts/${NONEXISTENT_ID}/volunteers/remove`)
+      .send({ volunteerID });
+
+    expect(res.status).toBe(404);
+    expect(res.body.error).toBe('Shift not found');
+  });
+
+  it('returns 400 for a malformed shiftID', async () => {
+    const volunteerID = await createVolunteer();
+
+    const res = await request(app)
+      .patch('/shifts/not-an-id/volunteers/remove')
+      .send({ volunteerID });
+
+    expect(res.status).toBe(400);
+  });
+
+  it('returns 400 for a malformed volunteerID', async () => {
+    const eventID = await setupEvent();
+    const shift = await createShift(eventID);
+
+    const res = await request(app)
+      .patch(`/shifts/${shift.body.shiftID}/volunteers/remove`)
+      .send({ volunteerID: 'not-an-id' });
+
+    expect(res.status).toBe(400);
   });
 });
