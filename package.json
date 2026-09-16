@@ -39,6 +39,8 @@
     "start": "node dist/index.js",
     "pretest": "docker start local-mongo",
     "test": "jest --runInBand",
-    "stop": "docker stop local-mongo"
+    "stop": "docker stop local-mongo",
+    "setup": "docker run -d --name local-mongo -p 27017:27017 -v local-mongo-data:/data/db mongo:7",
+    "docker": "open -a Docker"
   }
 }
